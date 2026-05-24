@@ -1,6 +1,6 @@
 site_name: starvellapi
 site_description: Async-клиент Starvell API на httpx и websockets
-site_url: https://starvellapi.readthedocs.io
+site_url: https://starvell.readthedocs.io
 repo_url: https://github.com/mooonfrog/starvellapi
 repo_name: mooonfrog/starvellapi
 edit_uri: edit/main/docs/
