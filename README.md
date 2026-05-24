@@ -76,7 +76,7 @@ async with Account(session_cookie="...") as acc:
 
 ## Документация
 
-Полная документация: <https://starvellapi.readthedocs.io>
+Полная документация: <https://starvell.readthedocs.io>
 
 ## Получить session cookie
 
