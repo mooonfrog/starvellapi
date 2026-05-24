@@ -3,7 +3,7 @@
 Асинхронный Python-клиент для [starvell.com](https://starvell.com) на `httpx` и `websockets`.
 
 [![Python](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![Docs](https://img.shields.io/badge/docs-readthedocs-8CA1AF.svg)](https://starvellapi.readthedocs.io)
+[![Docs](https://img.shields.io/badge/docs-readthedocs-8CA1AF.svg)](https://starvell.readthedocs.io)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
 Покрывает профиль, офферы, заказы, чаты, отзывы, тикеты поддержки. Плюс long-polling апдейтер событий и keepalive онлайн-статуса через websocket.
