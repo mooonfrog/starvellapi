@@ -1,0 +1,99 @@
+site_name: starvellapi
+site_description: Async-клиент Starvell API на httpx и websockets
+site_url: https://starvellapi.readthedocs.io
+repo_url: https://github.com/mooonfrog/starvellapi
+repo_name: mooonfrog/starvellapi
+edit_uri: edit/main/docs/
+docs_dir: docs
+
+theme:
+  name: material
+  language: ru
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.instant
+    - navigation.top
+    - navigation.expand
+    - toc.follow
+    - content.code.copy
+    - content.code.annotate
+    - search.highlight
+    - search.share
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: deep purple
+      accent: deep purple
+      toggle:
+        icon: material/brightness-7
+        name: Тёмная тема
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: deep purple
+      accent: deep purple
+      toggle:
+        icon: material/brightness-4
+        name: Светлая тема
+
+plugins:
+  - search:
+      lang:
+        - ru
+        - en
+  - mkdocstrings:
+      default_handler: python
+      handlers:
+        python:
+          paths:
+            - .
+          options:
+            docstring_style: sphinx
+            show_source: true
+            show_root_heading: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            members_order: source
+            separate_signature: true
+            show_signature_annotations: true
+            signature_crossrefs: true
+            merge_init_into_class: true
+            docstring_section_style: spacy
+            heading_level: 2
+            filters:
+              - "!^_"
+              - "^__init__$"
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+
+nav:
+  - Главная: index.md
+  - Быстрый старт: quickstart.md
+  - Гайды:
+      - Account: guide/account.md
+      - События: guide/events.md
+      - OnlineKeeper: guide/online.md
+  - API:
+      - Account: api/account.md
+      - Runner: api/runner.md
+      - OnlineKeeper: api/online.md
+      - Типы: api/types.md
+      - Енумы: api/enums.md
+      - События: api/events.md
+      - Исключения: api/exceptions.md
