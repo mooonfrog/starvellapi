@@ -66,11 +66,7 @@ class OnlineKeeper:
                 break
 
     async def _connect_and_listen(self) -> None:
-        headers = {'User-Agent': self._account._user_agent, 'Origin': 'https://starvell.com', 'Cookie': f'session={self._account._session_cookie}; starvell.theme=dark; starvell.time_zone=Europe/Moscow'}
-        try:
-            connect = websockets.connect(_WS_URL, additional_headers=headers)
-        except TypeError:
-            connect = websockets.connect(_WS_URL, extra_headers=headers)
+        connect = await self._account.connect_websocket(_WS_URL)
         async with connect as ws:
             ping_interval_ms, ping_timeout_ms = await self._read_open(ws)
             await ws.send('40/online,')

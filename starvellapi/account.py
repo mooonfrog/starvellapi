@@ -4,12 +4,12 @@ import ssl
 from typing import Any, Optional
 import certifi
 import httpx
-from .exceptions import AuthExpiredError, TransientError
+from .exceptions import AuthExpiredError, BotCheckDetectedException, TransientError
 from .enums import OfferSortBy, OrderUserType, SortDirection
 from .types import Chat, ChatMessage, Offer, Order, Profile, Review, TicketReply
 from . import parser
 _BASE_URL = 'https://starvell.com/api'
-_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36'
+_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36'
 
 class Account:
     """
@@ -25,12 +25,22 @@ class Account:
 
     :param proxy: Прокси-сервер в формате ``http://user:pass@host:port``, *опционально*.
     :type proxy: :obj:`str` or :obj:`None`
+
+    :param ddg5: Cookie для обхода защиты DDoS-Guard (полное название: `__ddg5_`).
+        **Примечание:** эта Cookie "умирает" каждый раз, когда:
+        - меняется IP
+        - меняется User-Agent / TLS fingerprint
+        - сервер обновил ключи/алгоритм
+        Чтобы API работал, эта Cookie должна быть взята из Cookie-данных аккаунта, токен которого вы указали, и запросы должны идти с того же IP-адреса, под которым Вы авторизовывались на starvell.com.
+        Если она недействительна, при запросах будет вызываться исключение `BotCheckDetectedException`.
+    :type ddg5: :obj:`str` or :obj:`None`
     """
 
-    def __init__(self, session_cookie: str, proxy: Optional[str]=None, user_agent: Optional[str]=None) -> None:
+    def __init__(self, session_cookie: str, proxy: Optional[str]=None, user_agent: Optional[str]=None, ddg5: Optional[str]=None) -> None:
         self._session_cookie: str = session_cookie
         self._proxy: str | None = proxy
         self._user_agent: str = user_agent or _USER_AGENT
+        self._ddg5: Optional[str] = ddg5
         self._http: Optional[httpx.AsyncClient] = None
         self._user_id: Optional[int] = None
 
@@ -46,7 +56,31 @@ class Account:
     async def _open(self) -> None:
         ssl_ctx = ssl.create_default_context(cafile=certifi.where())
         ssl_ctx.minimum_version = ssl.TLSVersion.TLSv1_2
-        kw: dict[str, Any] = dict(base_url=_BASE_URL, headers={'user-agent': self._user_agent, 'accept': '*/*', 'origin': 'https://starvell.com', 'referer': 'https://starvell.com/'}, cookies={'session': self._session_cookie, 'starvell.theme': 'dark', 'starvell.time_zone': 'Europe/Moscow'}, timeout=httpx.Timeout(25.0, connect=10.0, read=25.0), verify=ssl_ctx, follow_redirects=True)
+        cookies = {'session': self._session_cookie, 'starvell.theme': 'dark', 'starvell.time_zone': 'Europe/Moscow'}
+        if self._ddg5:
+            cookies['__ddg5_'] = self._ddg5
+        
+        headers = {
+            'User-Agent': self._user_agent,
+            'Accept': 'application/json, text/plain, */*',
+            'Accept-Language': 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Connection': 'keep-alive',
+            'Origin': 'https://starvell.com',
+            'Referer': 'https://starvell.com/',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'same-origin',
+        }
+        
+        kw: dict[str, Any] = dict(
+            base_url=_BASE_URL, 
+            headers=headers, 
+            cookies=cookies, 
+            timeout=httpx.Timeout(25.0, connect=10.0, read=25.0), 
+            verify=ssl_ctx, 
+            follow_redirects=True,
+            http2=True
+        )
         if self._proxy:
             kw['proxy'] = self._proxy
         self._http = httpx.AsyncClient(**kw)
@@ -80,6 +114,59 @@ class Account:
             raise RuntimeError('user_id не загружен. Дождитесь завершения __aenter__.')
         return self._user_id
 
+    async def connect_websocket(self, url: str) -> Any:
+        """
+        Устанавливает WebSocket-соединение с учётом прокси и DDoS-Guard.
+        """
+        import websockets
+        from urllib.parse import urlparse
+        
+        cookie_str = f'session={self._session_cookie}; starvell.theme=dark; starvell.time_zone=Europe/Moscow'
+        if self._ddg5:
+            cookie_str += f'; __ddg5_={self._ddg5}'
+            
+        headers = {
+            'User-Agent': self._user_agent,
+            'Origin': 'https://starvell.com',
+            'Cookie': cookie_str,
+            'Sec-Ch-Ua': '"Not/A)Brand";v="8", "Chromium";v="126", "Google Chrome";v="126"',
+            'Sec-Ch-Ua-Mobile': '?0',
+            'Sec-Ch-Ua-Platform': '"Windows"',
+        }
+        
+        kw: dict[str, Any] = {}
+        try:
+            kw['additional_headers'] = headers
+        except TypeError:
+            kw['extra_headers'] = headers
+
+        if self._proxy:
+            from python_socks.asyncio.proxy import Proxy
+            p = urlparse(self._proxy)
+            proxy_type = p.scheme
+            if proxy_type == 'http':
+                from python_socks import ProxyType
+                proxy_type = ProxyType.HTTP
+            elif proxy_type == 'socks5':
+                from python_socks import ProxyType
+                proxy_type = ProxyType.SOCKS5
+            elif proxy_type == 'socks4':
+                from python_socks import ProxyType
+                proxy_type = ProxyType.SOCKS4
+            
+            proxy = Proxy.create(
+                proxy_type=proxy_type,
+                host=p.hostname,
+                port=p.port,
+                username=p.username,
+                password=p.password,
+                rdns=True
+            )
+            sock = await proxy.connect(dest_host=urlparse(url).hostname, dest_port=443)
+            return websockets.connect(url, sock=sock, server_hostname=urlparse(url).hostname, **kw)
+        
+        return websockets.connect(url, **kw)
+
     async def _request(self, method: str, url: str, **kw: Any) -> httpx.Response:
         """
         Выполняет HTTP-запрос с автоматическим повтором при временных ошибках.
@@ -110,9 +197,20 @@ class Account:
                 continue
             except httpx.HTTPError as e:
                 raise TransientError(f'{type(e).__name__}: {e}') from e
-            if resp.status_code in (401, 403):
+            if resp.status_code == 403:
+                if 'ddos-guard' in resp.headers.get('server', '').lower():
+                    raise BotCheckDetectedException(
+                        f'DDoS-Guard check detected on {url}. '
+                        'Возможные причины: \n'
+                        '1. Вы получили куку на другом IP (например, дома), а бот запущен на сервере без прокси.\n'
+                        '2. User-Agent в конфиге бота не совпадает с тем, в котором вы брали куку.\n'
+                        '3. Кука __ddg5_ протухла.'
+                    )
+                raise AuthExpiredError(f'HTTP {resp.status_code} на {url}')
+            if resp.status_code == 401:
                 raise AuthExpiredError(f'HTTP {resp.status_code} на {url}')
             if 500 <= resp.status_code < 600:
+
                 last_exc = Exception(f'HTTP {resp.status_code}')
                 if attempts >= 3:
                     raise TransientError(f'HTTP {resp.status_code} на {url}')

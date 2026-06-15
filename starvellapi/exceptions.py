@@ -21,6 +21,14 @@ class TransientError(StarvellAPIError):
     """
 
 
+class BotCheckDetectedException(StarvellAPIError):
+    """
+    Обнаружена проверка на бота (DDoS-Guard).
+
+    Выбрасывается, когда DDoS-Guard блокирует запрос.
+    """
+
+
 class RequestFailedError(StarvellAPIError):
     """
     Запрос завершился с неожиданным HTTP-статусом.

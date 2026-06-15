@@ -74,13 +74,9 @@ class Runner:
         self._persist()
 
     async def _ws_loop(self) -> None:
-        headers = {'User-Agent': self._account._user_agent, 'Origin': 'https://starvell.com', 'Cookie': f'session={self._account._session_cookie}; starvell.theme=dark; starvell.time_zone=Europe/Moscow'}
         while self._running:
             try:
-                try:
-                    connect = websockets.connect(_WS_URL, additional_headers=headers)
-                except TypeError:
-                    connect = websockets.connect(_WS_URL, extra_headers=headers)
+                connect = await self._account.connect_websocket(_WS_URL)
                 async with connect as ws:
                     await ws.send('40/chats,')
                     while self._running:
